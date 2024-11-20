@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Center for Cyberspace Studies - NSUK Journal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes gradientFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes searchBarPulse {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+
+        .animate-gradient {
+            background: linear-gradient(270deg, #4f46e5, #0ea5e9, #6366f1);
+            background-size: 200% 200%;
+            animation: gradientFlow 6s ease infinite;
+        }
+
+        .search-container {
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .search-input:focus {
+            animation: searchBarPulse 2s infinite;
+        }
+
+        .video-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -2;
+        }
+
+        .video-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            z-index: -1;
+        }
+
+        /* Mobile menu styles */
+        .mobile-menu {
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .mobile-menu.active {
+            transform: translateX(0);
+        }
+
+        @media (max-width: 768px) {
+            .search-container {
+                padding: 0 1rem;
+            }
+            
+            .search-input {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen relative">
+    <video autoplay loop muted playsinline class="video-background">
+        <source src="nigeriaman.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <div class="video-overlay"></div>
+
+    <!-- Navigation -->
+    <nav class="flex items-center justify-between px-4 md:px-6 py-4 relative z-20">
+        <div class="flex items-center gap-2">
+            <img src="/placeholder.svg" alt="NSUK Logo" class="w-8 md:w-10 h-8 md:h-10">
+            <span class="text-white font-semibold">NSUK</span>
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button id="menuButton" class="md:hidden text-white p-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+        </button>
+
+        <!-- Desktop Navigation -->
+        <div class="hidden md:flex items-center gap-8">
+            <a href="#" class="text-white hover:text-white/80 transition-colors">Home</a>
+            <a href="#" class="text-white hover:text-white/80 transition-colors">Journals</a>
+            <a href="#" class="text-white hover:text-white/80 transition-colors">About</a>
+            <a href="#" class="text-white hover:text-white/80 transition-colors">Contact</a>
+            <button class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-2 rounded-full font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 transform">
+                Submit Paper
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="mobile-menu fixed top-0 left-0 w-64 h-full bg-slate-900 z-30 md:hidden">
+        <div class="flex justify-end p-4">
+            <button id="closeMenu" class="text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="flex flex-col gap-4 p-4">
+            <a href="#" class="text-white hover:text-white/80 transition-colors">Home</a>
+            <a href="#" class="text-white hover:text-white/80 transition-colors">Journals</a>
+            <a href="#" class="text-white hover:text-white/80 transition-colors">About</a>
+            <a href="#" class="text-white hover:text-white/80 transition-colors">Contact</a>
+            <button class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-2 rounded-full font-medium transition-all duration-300 hover:shadow-lg">
+                Submit Paper
+            </button>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <div class="container mx-auto px-4 md:px-6 py-12 md:py-24 text-center relative z-10">
+        <div class="space-y-6 md:space-y-8 max-w-4xl mx-auto">
+            <h1 class="text-4xl md:text-6xl font-bold leading-tight animate-gradient text-transparent bg-clip-text" style="animation: gradientFlow 6s ease infinite, fadeInUp 1s ease-out">
+                Center for Cyberspace Studies
+                <span class="block mt-2">Digital Journal Repository</span>
+            </h1>
+            <p class="text-white/80 text-lg md:text-xl opacity-0" style="animation: fadeInUp 1s ease-out 0.3s forwards">
+                Advancing knowledge in cybersecurity, digital forensics, and information technology
+            </p>
+
+            <!-- Search Section -->
+            <div class="mt-8 md:mt-16 search-container">
+                <div class="max-w-3xl mx-auto bg-white rounded-full shadow-2xl overflow-hidden flex flex-col md:flex-row items-center p-2">
+                    <div class="w-full md:w-auto mb-2 md:mb-0">
+                        <select class="w-full md:w-auto bg-transparent border-none text-gray-700 font-medium focus:ring-0 cursor-pointer px-4 py-2">
+                            <option>All Categories</option>
+                            <option>Articles</option>
+                            <option>Research Papers</option>
+                            <option>Journals</option>
+                        </select>
+                    </div>
+                    <div class="hidden md:block h-6 w-px bg-gray-200 mx-4"></div>
+                    <input type="text" style="outline:none"
+                           placeholder="Search by title, DOI, keywords, or author" 
+                           class="w-full py-2 md:py-3 px-4 text-gray-600 placeholder-gray-400 border-none focus:ring-0 search-input"
+                    >
+                    <button class="w-full md:w-auto bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-2 md:px-8 md:py-3 rounded-full font-medium transition-all duration-300 mt-2 md:mt-0 md:mx-2 hover:shadow-lg">
+                        Search
+                    </button>
+                </div>
+                <div class="mt-4 text-white/60 text-xs md:text-sm px-4">
+                    Popular searches: Cybersecurity, Digital Forensics, Network Security, Data Privacy
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="container mx-auto px-4 md:px-6 pb-8 md:pb-12 relative z-10">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 max-w-4xl mx-auto">
+            <div class="text-center opacity-0" style="animation: fadeInUp 0.5s ease-out 0.6s forwards">
+                <div class="text-3xl md:text-4xl font-bold text-blue-400">1.2K+</div>
+                <div class="text-white/60 mt-2 text-sm md:text-base">Published Papers</div>
+            </div>
+            <div class="text-center opacity-0" style="animation: fadeInUp 0.5s ease-out 0.8s forwards">
+                <div class="text-3xl md:text-4xl font-bold text-blue-400">500+</div>
+                <div class="text-white/60 mt-2 text-sm md:text-base">Researchers</div>
+            </div>
+            <div class="text-center opacity-0" style="animation: fadeInUp 0.5s ease-out 1s forwards">
+                <div class="text-3xl md:text-4xl font-bold text-blue-400">50+</div>
+                <div class="text-white/60 mt-2 text-sm md:text-base">Countries</div>
+            </div>
+            <div class="text-center opacity-0" style="animation: fadeInUp 0.5s ease-out 1.2s forwards">
+                <div class="text-3xl md:text-4xl font-bold text-blue-400">24/7</div>
+                <div class="text-white/60 mt-2 text-sm md:text-base">Support</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const video = document.querySelector('video');
+            video.playbackRate = 0.75;
+
+            // Mobile menu functionality
+            const menuButton = document.getElementById('menuButton');
+            const closeMenu = document.getElementById('closeMenu');
+            const mobileMenu = document.getElementById('mobileMenu');
+
+            menuButton.addEventListener('click', () => {
+                mobileMenu.classList.add('active');
+            });
+
+            closeMenu.addEventListener('click', () => {
+                mobileMenu.classList.remove('active');
+            });
+
+            // Close menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!mobileMenu.contains(e.target) && !menuButton.contains(e.target)) {
+                    mobileMenu.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

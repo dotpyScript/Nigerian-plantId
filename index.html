@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nigerian Plant Identifier - Powered by Gemini AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf/notyf.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/notyf/notyf.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand': {
+                            'dark': '#1B2E35',
+                            'green': '#00A651',
+                            'light': '#E8F5E9'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script type="importmap">
+        {
+          "imports": {
+            "@google/generative-ai": "https://esm.run/@google/generative-ai"
+          }
+        }
+    </script>
+    <style>
+        @media (max-width: 768px) {
+            #results-modal .flex-col {
+                flex-direction: column !important;
+            }
+            #results-modal .md\:w-1\/2 {
+                width: 100% !important;
+            }
+            #result-image {
+                max-height: 300px;
+                object-fit: cover;
+            }
+        }
+    </style>
+    <script>
+        // Initialize speech synthesis with enhanced settings
+        const speechSynthesis = window.speechSynthesis;
+        let currentUtterance = null;
+
+        async function initVoices() {
+            // Wait for voices to be loaded
+            await new Promise(resolve => {
+                if (speechSynthesis.getVoices().length) {
+                    resolve();
+                } else {
+                    speechSynthesis.addEventListener('voiceschanged', resolve, { once: true });
+                }
+            });
+
+            // Get all available voices
+            const voices = speechSynthesis.getVoices();
+            // Try to find a female English voice
+            return voices.find(voice => 
+                voice.name.includes('female') || 
+                voice.name.includes('Samantha') ||  // iOS female voice
+                voice.name.includes('Microsoft Zira') ||  // Windows female voice
+                voice.name.includes('Google UK English Female')
+            ) || voices[0];  // Fallback to first available voice
+        }
+
+        async function speak(text, element) {
+            try {
+                // Stop any ongoing speech
+                if (currentUtterance) {
+                    speechSynthesis.cancel();
+                }
+
+                // Update UI to show active state
+                document.querySelectorAll('.speak-btn').forEach(btn => {
+                    btn.classList.remove('speaking');
+                });
+                element.classList.add('speaking');
+                
+                // Create new utterance with enhanced settings
+                currentUtterance = new SpeechSynthesisUtterance(text);
+                currentUtterance.voice = await initVoices();
+                currentUtterance.rate = 0.9;  // Slightly slower for clarity
+                currentUtterance.pitch = 1.1; // Slightly higher pitch for feminine voice
+                currentUtterance.volume = 1.0;
+                
+                // Handle speech end
+                currentUtterance.onend = () => {
+                    element.classList.remove('speaking');
+                };
+
+                speechSynthesis.speak(currentUtterance);
+            } catch (error) {
+                console.error('Speech synthesis error:', error);
+                element.classList.remove('speaking');
+            }
+        }
+
+        function stopSpeaking() {
+            if (currentUtterance) {
+                speechSynthesis.cancel();
+                document.querySelectorAll('.speak-btn').forEach(btn => {
+                    btn.classList.remove('speaking');
+                });
+                currentUtterance = null;
+            }
+        }
+    </script>
+    <style>
+        .speak-btn {
+            @apply relative inline-flex items-center justify-center w-8 h-8 rounded-full 
+                   transition-all duration-300 ease-in-out;
+        }
+
+        .speak-btn:not(.speaking) {
+            @apply bg-brand-green/10 text-brand-green hover:bg-brand-green hover:text-white;
+        }
+
+        .speak-btn.speaking {
+            @apply bg-brand-green text-white;
+            animation: pulse 2s infinite;
+        }
+
+        .speak-btn i {
+            @apply text-sm;
+        }
+
+        .speak-btn::before {
+            content: '';
+            @apply absolute inset-0 rounded-full opacity-0 transition-opacity duration-300;
+            background: radial-gradient(circle, rgba(0,166,81,0.1) 0%, rgba(0,166,81,0) 70%);
+        }
+
+        .speak-btn:hover::before {
+            @apply opacity-100;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(0, 166, 81, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(0, 166, 81, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 166, 81, 0);
+            }
+        }
+
+        .stop-btn {
+            @apply bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 
+                   transition-all duration-300 ease-in-out hover:scale-105 
+                   hover:shadow-lg backdrop-blur-sm;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-gray-50 to-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-brand-dark/90 backdrop-blur-md text-white shadow-lg fixed w-full z-50 transition-all duration-300">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-leaf text-brand-green text-2xl"></i>
+                <span class="text-xl font-bold">PlantID Nigeria</span>
+            </div>
+            <button class="md:hidden" onclick="toggleMobileMenu()">
+                <i class="fas fa-bars text-2xl"></i>
+            </button>
+            <div id="mobile-menu" class="hidden md:flex space-x-8">
+                <a href="#" class="hover:text-brand-green transition-colors duration-200">Home</a>
+                <a href="#" class="hover:text-brand-green transition-colors duration-200">Database</a>
+                <a href="#" class="hover:text-brand-green transition-colors duration-200">About</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="relative bg-brand-dark text-white min-h-screen flex items-center">
+        <!-- Background Overlay with Nigerian pattern -->
+        <div class="absolute inset-0 bg-black/60 z-10 bg-opacity-60 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCI+CjxyZWN0IHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgZmlsbD0iIzE3MmIzMyI+PC9yZWN0Pgo8cGF0aCBkPSJNMzYgNDZMMjQgMzRMMzYgMjJNMjQgNDZMMzYgMzRMMjQgMjIiIHN0cm9rZT0iIzIyM2M0NyIgc3Ryb2tlLXdpZHRoPSIxIj48L3BhdGg+Cjwvc3ZnPg==')]"></div>
+        
+        <!-- Content Container -->
+        <div class="relative container mx-auto px-4 py-16 z-20">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <!-- Left side: Text content -->
+                <div class="backdrop-blur-sm bg-black/20 p-8 rounded-2xl">
+                    <h1 class="text-4xl md:text-6xl font-bold mb-6 leading-tight">Discover Nigeria's Rich Plant Heritage</h1>
+                    <p class="text-xl opacity-90 mb-8">Instantly identify and learn about indigenous Nigerian plants using advanced AI technology.</p>
+                    <div class="flex flex-wrap gap-4">
+                        <span class="flex items-center gap-2 bg-brand-green/20 px-4 py-2 rounded-full">
+                            <i class="fas fa-check-circle text-brand-green"></i>
+                            <span>Instant Recognition</span>
+                        </span>
+                        <span class="flex items-center gap-2 bg-brand-green/20 px-4 py-2 rounded-full">
+                            <i class="fas fa-check-circle text-brand-green"></i>
+                            <span>Local Knowledge</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Right side: Upload/Capture Card -->
+                <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 shadow-xl">
+                    <h3 class="text-2xl font-semibold mb-6 text-center">Identify Your Plant</h3>
+                    <div class="grid grid-cols-2 gap-6">
+                        <!-- Camera Capture -->
+                        <div onclick="startCamera()" class="cursor-pointer group">
+                            <div class="aspect-square rounded-xl border-2 border-dashed border-white/50 flex flex-col items-center justify-center gap-4 group-hover:border-brand-green group-hover:bg-brand-green/10 transition-all duration-300">
+                                <div class="w-16 h-16 rounded-full bg-brand-green/20 flex items-center justify-center group-hover:bg-brand-green/30 transition-all duration-300">
+                                    <i class="fas fa-camera text-2xl group-hover:scale-110 transition-transform duration-300"></i>
+                                </div>
+                                <p class="text-sm font-medium">Take Photo</p>
+                            </div>
+                        </div>
+
+                        <!-- File Upload -->
+                        <label for="file-upload" class="cursor-pointer group">
+                            <div class="aspect-square rounded-xl border-2 border-dashed border-white/50 flex flex-col items-center justify-center gap-4 group-hover:border-brand-green group-hover:bg-brand-green/10 transition-all duration-300">
+                                <div class="w-16 h-16 rounded-full bg-brand-green/20 flex items-center justify-center group-hover:bg-brand-green/30 transition-all duration-300">
+                                    <i class="fas fa-upload text-2xl group-hover:scale-110 transition-transform duration-300"></i>
+                                </div>
+                                <p class="text-sm font-medium">Upload Image</p>
+                            </div>
+                        </label>
+                        <input 
+                            type="file" 
+                            id="file-upload" 
+                            class="hidden" 
+                            accept="image/*"
+                            onchange="handleFileUpload(event)"
+                        >
+                    </div>
+
+                    <!-- Camera Preview -->
+                    <div id="camera-container" class="hidden mt-6">
+                        <video id="camera-preview" class="w-full rounded-lg" autoplay></video>
+                        <button 
+                            onclick="capturePhoto()"
+                            class="w-full mt-4 bg-brand-green hover:bg-green-600 text-white py-3 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+                        >
+                            <i class="fas fa-camera"></i>
+                            Capture Photo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loading" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white p-8 rounded-xl shadow-xl">
+            <div class="animate-spin rounded-full h-16 w-16 border-4 border-brand-green border-t-transparent mx-auto"></div>
+            <p class="mt-4 text-gray-700 text-lg">Analyzing plant...</p>
+        </div>
+    </div>
+
+   <!-- Results Modal -->
+<div id="results-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm overflow-y-auto py-8">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 my-auto transform transition-all duration-300 opacity-0 scale-95" id="modal-content">
+        <div class="flex flex-col md:flex-row h-full">
+            <!-- Image Section with enhanced styling -->
+            <div class="md:w-1/2 h-64 md:h-auto relative rounded-t-xl md:rounded-l-xl md:rounded-tr-none overflow-hidden">
+                <img id="result-image" src="" alt="Identified Plant" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                <button onclick="closeModal()" class="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 transition-all duration-200 hover:scale-110">
+                    <i class="fas fa-times"></i>
+                </button>
+                <button onclick="stopSpeaking()" 
+                        class="stop-btn absolute top-4 left-4 z-10">
+                    <i class="fas fa-volume-mute"></i>
+                </button>
+            </div>
+            
+            <!-- Enhanced Info Section -->
+            <div class="md:w-1/2 p-8 max-h-[70vh] md:max-h-[80vh] overflow-y-auto">
+                <!-- Plant Name Section -->
+                <div class="mb-6">
+                    <div class="flex items-center justify-between">
+                        <h1 id="common-name" class="text-4xl font-bold text-brand-dark mb-2"></h1>
+                        <button onclick="speak(document.getElementById('common-name').textContent, this)" 
+                                class="speak-btn">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <h5 id="scientific-name" class="text-xl italic text-gray-600"></h5>
+                        <button onclick="speak(document.getElementById('scientific-name').textContent, this)"
+                                class="speak-btn">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="space-y-6">
+                    <!-- Local Names -->
+                    <div class="bg-brand-light p-6 rounded-lg mb-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-lg font-semibold text-brand-dark">Local Names</h4>
+                            <button onclick="speak(document.querySelector('#local-names-content').textContent, this)"
+                                    class="speak-btn">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                        </div>
+                        <div id="local-names-content" class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-gray-700">Yoruba:</span>
+                                <span id="yoruba-name" class="text-gray-900"></span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-gray-700">Hausa:</span>
+                                <span id="hausa-name" class="text-gray-900"></span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-gray-700">Igbo:</span>
+                                <span id="igbo-name" class="text-gray-900"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botanical Information -->
+                    <div class="bg-brand-light p-6 rounded-lg mb-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-lg font-semibold text-brand-dark">Botanical Information</h4>
+                            <button onclick="speak(document.querySelector('#botanical-info-content').textContent, this)"
+                                    class="speak-btn">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                        </div>
+                        <div id="botanical-info-content" class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-gray-700">Family:</span>
+                                <span id="plant-family" class="text-gray-900"></span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-gray-700">Distribution:</span>
+                                <span id="distribution" class="text-gray-900"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Traditional Uses -->
+                    <div class="bg-brand-light p-6 rounded-lg mb-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-lg font-semibold text-brand-dark">Traditional Uses</h4>
+                            <button onclick="speak(document.querySelector('#traditional-uses').textContent, this)"
+                                    class="speak-btn">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                        </div>
+                        <ul id="traditional-uses" class="list-disc list-inside space-y-2 text-gray-900"></ul>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="bg-brand-light p-6 rounded-lg">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-lg font-semibold text-brand-dark">Description</h4>
+                            <button onclick="speak(document.querySelector('#description').textContent, this)"
+                                    class="speak-btn">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                        </div>
+                        <p id="description" class="text-gray-900 leading-relaxed"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- How It Works Section -->
+    <div class="bg-white py-16">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl font-bold text-center mb-12 text-brand-dark">How It Works</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Step 1 -->
+                <div class="bg-brand-light rounded-lg p-6 text-center shadow-md hover:shadow-lg transition-shadow duration-300">
+                    <div class="w-16 h-16 bg-brand-green rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-camera text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-brand-dark">Capture or Upload</h3>
+                    <p class="text-gray-700">Take a photo or upload an image of the plant you want to identify.</p>
+                </div>
+                <!-- Step 2 -->
+                <div class="bg-brand-light rounded-lg p-6 text-center shadow-md hover:shadow-lg transition-shadow duration-300">
+                    <div class="w-16 h-16 bg-brand-green rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-brain text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-brand-dark">AI Analysis</h3>
+                    <p class="text-gray-700">Our advanced AI model analyzes the image to identify the plant.</p>
+                </div>
+                <!-- Step 3 -->
+                <div class="bg-brand-light rounded-lg p-6 text-center shadow-md hover:shadow-lg transition-shadow duration-300">
+                    <div class="w-16 h-16 bg-brand-green rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-info-circle text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-brand-dark">Get Detailed Info</h3>
+                    <p class="text-gray-700">Receive comprehensive information about the plant, including local names and uses.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+
+        // Initialize notifications
+        const notyf = new Notyf({
+            duration: 3000,
+            position: { x: 'right', y: 'top' },
+            types: [
+                {
+                    type: 'error',
+                    background: '#ff4b4b',
+                    duration: 4000
+                },
+                {
+                    type: 'success',
+                    background: '#00A651',
+                    duration: 2000
+                }
+            ]
+        });
+
+        // Initialize Gemini API
+        const genAI = new GoogleGenerativeAI('AIzaSyDh0McQc0b3hxY2jLfuUGYpAXHoAwxF7I4');
+
+        // Global variables
+        let stream;
+
+        // Camera handling functions
+        window.startCamera = async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                const video = document.getElementById('camera-preview');
+                video.srcObject = stream;
+                document.getElementById('camera-container').classList.remove('hidden');
+            } catch (err) {
+                console.error('Camera error:', err);
+                notyf.error('Unable to access camera. Please check permissions.');
+            }
+        };
+
+        window.capturePhoto = () => {
+            const video = document.getElementById('camera-preview');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            canvas.toBlob(async (blob) => {
+                await analyzeImage(blob);
+                // Stop and clean up camera stream
+                stream.getTracks().forEach(track => track.stop());
+                document.getElementById('camera-container').classList.add('hidden');
+            }, 'image/jpeg', 0.8);
+        };
+
+        // File upload handling
+        window.handleFileUpload = async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                notyf.error('Please upload an image file');
+                return;
+            }
+
+            try {
+                await analyzeImage(file);
+            } catch (error) {
+                console.error('Upload error:', error);
+                notyf.error('Error processing image. Please try again.');
+            }
+        };
+
+        // Image analysis function
+        async function analyzeImage(imageBlob) {
+            try {
+                showLoading(true);
+                
+                const base64Image = await blobToBase64(imageBlob);
+                
+                const prompt = `
+                    You are a Nigerian botanical expert. Analyze this plant image and provide detailed, accurate information. 
+                    Format your response exactly as follows (maintain this strict structure):
+
+                    Common Name: [Primary common name in English]
+                    Scientific Name: [Genus species]
+
+                    Local Names:
+                    - Yoruba: [name or "Not documented"]
+                    - Hausa: [name or "Not documented"]
+                    - Igbo: [name or "Not documented"]
+
+                    Family: [Botanical family]
+                    Distribution: [Specific regions in Nigeria where this plant is found]
+
+                    Traditional Uses:
+                    1. [Primary use]
+                    2. [Secondary use]
+                    3. [Additional use]
+
+                    Description:
+                    [2-3 sentences describing physical characteristics]
+
+                    If you cannot identify the plant with high confidence, respond with:
+                    "Unable to confidently identify this plant. Please ensure the image shows the plant clearly."
+
+                    If any specific field is uncertain, use "Not documented" rather than guessing.
+                `;
+
+                const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+                const result = await model.generateContent([
+                    prompt,
+                    { inlineData: { data: base64Image, mimeType: "image/jpeg" } }
+                ]);
+                
+                const response = await result.response;
+                const text = response.text();
+                
+                // Check if the response indicates inability to identify
+                if (text.includes("Unable to confidently identify")) {
+                    notyf.error("Unable to identify plant. Please try a clearer image.");
+                    return;
+                }
+                
+                processResponse(imageBlob, text);
+                notyf.success('Plant successfully identified!');
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                notyf.error('Error analyzing plant. Please try again.');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Enhanced response processing
+        function processResponse(imageBlob, responseText) {
+            const resultImage = document.getElementById('result-image');
+            resultImage.src = URL.createObjectURL(imageBlob);
+
+            // Create a structured data object
+            const data = {
+                commonName: extractValue(responseText, 'Common Name:'),
+                scientificName: extractValue(responseText, 'Scientific Name:'),
+                localNames: {
+                    yoruba: extractValue(responseText, '- Yoruba:'),
+                    hausa: extractValue(responseText, '- Hausa:'),
+                    igbo: extractValue(responseText, '- Igbo:')
+                },
+                family: extractValue(responseText, 'Family:'),
+                distribution: extractValue(responseText, 'Distribution:'),
+                uses: extractTraditionalUses(responseText),
+                description: extractDescription(responseText)
+            };
+
+            // Update UI with validated data
+            updateUI(data);
+            
+            // Show modal with animation
+            showModal();
+        }
+
+        // Helper functions for better data extraction
+        function extractTraditionalUses(text) {
+            const usesSection = text.split('Traditional Uses:')[1]?.split('Description:')[0] || '';
+            return usesSection
+                .split('\n')
+                .filter(line => line.trim().match(/^\d+\./))
+                .map(use => use.replace(/^\d+\./, '').trim());
+        }
+
+        function extractDescription(text) {
+            const descSection = text.split('Description:')[1] || '';
+            return descSection.trim();
+        }
+
+        // Clean UI update function
+        function updateUI(data) {
+            const elements = {
+                'common-name': data.commonName,
+                'scientific-name': data.scientificName,
+                'yoruba-name': data.localNames.yoruba || 'Not documented',
+                'hausa-name': data.localNames.hausa || 'Not documented',
+                'igbo-name': data.localNames.igbo || 'Not documented',
+                'plant-family': data.family,
+                'distribution': data.distribution,
+                'description': data.description
+            };
+
+            // Update text content
+            Object.entries(elements).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value || 'Not documented';
+            });
+
+            // Update traditional uses list
+            const usesList = document.getElementById('traditional-uses');
+            usesList.innerHTML = data.uses
+                .map(use => `<li class="mb-2">${use}</li>`)
+                .join('') || '<li>No traditional uses documented</li>';
+        }
+
+        // Show modal function
+        function showModal() {
+            const modal = document.getElementById('results-modal');
+            const modalContent = document.getElementById('modal-content');
+            
+            modal.classList.remove('hidden');
+            // Wait for the next frame to add the transition classes
+            requestAnimationFrame(() => {
+                modalContent.classList.remove('opacity-0', 'scale-95');
+                modalContent.classList.add('opacity-100', 'scale-100');
+            });
+        }
+
+        // Enhanced modal close function
+        window.closeModal = () => {
+            const modal = document.getElementById('results-modal');
+            const modalContent = document.getElementById('modal-content');
+            
+            // Add transition classes
+            modalContent.classList.remove('opacity-100', 'scale-100');
+            modalContent.classList.add('opacity-0', 'scale-95');
+            
+            // Wait for animation to complete before hiding
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                // Reset file input
+                document.getElementById('file-upload').value = '';
+            }, 300);
+        };
+
+        // Helper function to extract values from response text
+        function extractValue(text, key) {
+            const lines = text.split('\n');
+            const line = lines.find(l => l.startsWith(key));
+            if (!line) return '';
+            return line.replace(key, '').trim();
+        }
+
+        // Helper function to convert blob to base64
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // Toggle loading spinner
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('hidden', !show);
+        }
+
+        // Toggle mobile menu
+        window.toggleMobileMenu = () => {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        };
+
+        // Error handling wrapper for async functions
+        function handleError(fn) {
+            return async (...args) => {
+                try {
+                    await fn(...args);
+                } catch (error) {
+                    console.error('Error:', error);
+                    notyf.error('An unexpected error occurred. Please try again.');
+                }
+            };
+        }
+
+        // Clean up function for resetting state
+        function resetState() {
+            // Reset camera if active
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            // Hide camera container
+            document.getElementById('camera-container').classList.add('hidden');
+            
+            // Reset file input
+            document.getElementById('file-upload').value = '';
+        }
+
+        // Initialize event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Reset state when leaving the page
+            window.addEventListener('beforeunload', resetState);
+            
+            // Handle escape key to close mobile menu and modal
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    document.getElementById('mobile-menu').classList.add('hidden');
+                    document.getElementById('results-modal').classList.add('hidden');
+                }
+            });
+
+            // Close mobile menu when clicking outside
+            document.addEventListener('click', (e) => {
+                const menu = document.getElementById('mobile-menu');
+                const menuButton = document.querySelector('button[onclick="toggleMobileMenu()"]');
+                
+                if (!menu.contains(e.target) && !menuButton.contains(e.target)) {
+                    menu.classList.add('hidden');
+                }
+            });
+
+            // Close modal when clicking outside
+            const modal = document.getElementById('results-modal');
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+
+            // Close modal with Escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                    closeModal();
+                }
+            });
+
+            // Enable file input to trigger analysis on change
+            document.getElementById('file-upload').addEventListener('change', (event) => {
+                handleFileUpload(event);
+            });
+        });
+    </script>
+</body>
+</html>
